@@ -130,3 +130,18 @@ def render():
                 </div>
             </div>
             """, unsafe_allow_html=True)
+
+    # --- PERSISTENT DEBUG SECTION ---
+    if analysis_result and "debug_info" in analysis_result:
+        st.markdown("---")
+        with st.expander("🛠️ Analysis Debug Information (Developer Only)"):
+            d = analysis_result["debug_info"]
+            st.write(f"**Detected Role:** {analysis_result.get('target_role_detected', 'N/A')}")
+            st.write(f"**Role Match Score:** {d.get('role_match_score', 0)}")
+            st.write(f"**Tokens Matched for Role:** {', '.join(d.get('tokens_found', []))}")
+            st.write("**Extracted Text Snippet (First 1000 chars):**")
+            st.code(d.get("raw_text_snippet", "No text found"))
+            if not d.get("raw_text_snippet", "").strip():
+                st.error("🚨 CRITICAL: No text was extracted from this resume. The PDF might be an image/scanned or encrypted.")
+            
+            st.info("💡 If the result is wrong, please share a screenshot of this box with me!")

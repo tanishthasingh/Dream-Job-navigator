@@ -52,22 +52,34 @@ def analyze_profile(job_title, resume_file, country):
         return {"error": "Could not extract text from resume. Please ensure it is a valid PDF."}
     
     # Normalize text - replace common ligatures or unusual whitespace
-    resume_text_clean = re.sub(r'\s+', ' ', resume_text).lower()
+    # Handles cases like "P y t h o n" occurring in certain PDF extractions
+    resume_text_clean = re.sub(r'(?<=[a-zA-Z])\s(?=[a-zA-Z]\s)', '', resume_text)
+    resume_text_clean = re.sub(r'\s+', ' ', resume_text_clean).lower()
     
     # Determine which skill set to use
     db = get_job_skills_database()
     target_role = "General"
     best_match_score = 0
     
-    # Improved role matching using simple token overlap
+    # Weighted role matching (Technical keywords > Generic role words)
     job_tokens = set(re.findall(r'\w+', job_title.lower()))
+    role_modifier_tokens = {"engineer", "developer", "specialist", "manager", "lead", "senior", "junior"}
+    
     for role in db.keys():
         if role == "General": continue
         role_tokens = set(re.findall(r'\w+', role.lower()))
-        overlap = len(job_tokens.intersection(role_tokens))
-        if overlap > best_match_score:
+        matches = job_tokens.intersection(role_tokens)
+        
+        score = 0
+        for m in matches:
+            if m in role_modifier_tokens:
+                score += 1
+            else:
+                score += 10 # Technical keywords (Software, DevOps, Data) carry much more weight
+        
+        if score > best_match_score:
             target_role = role
-            best_match_score = overlap
+            best_match_score = score
             
     required_skills = db[target_role]["critical"]
     nice_to_have_skills = db[target_role]["nice_to_have"]
@@ -77,31 +89,53 @@ def analyze_profile(job_title, resume_file, country):
     
     def check_skill(skill_name, text):
         skill_lower = skill_name.lower()
-        # Special handling for skills with symbols like C++ or .NET
+        
+        # 1. Broad regex - handles 'Python', 'Python3', 'C++', '.NET'
         if not re.search(r'[a-zA-Z0-9]', skill_lower[-1]):
-             # If ends in symbol, don't use \b at the end
              pattern = r'\b' + re.escape(skill_lower)
         elif not re.search(r'[a-zA-Z0-9]', skill_lower[0]):
-             # If starts with symbol, don't use \b at start
              pattern = re.escape(skill_lower) + r'\b'
         else:
-             # Standard word boundaries but allow versioning like Python3
+             # Match word boundaries but allow versioning or attached punctuation
              pattern = r'\b' + re.escape(skill_lower) + r'(?:\d+)?\b'
         
-        # Also check for common compound mentions like PostgreSQL for SQL
-        if skill_lower == "sql" and "postgresql" in text:
+        if re.search(pattern, text):
             return True
             
-        return re.search(pattern, text) is not None
+        # 2. Comprehensive Synonym and common variation check
+        synonyms = {
+            "sql": ["postgresql", "mysql", "oracle", "mariadb", "sqlite", "t-sql", "nosql", "dynamodb", "mongodb", "pl/sql"],
+            "python": ["python3", "py3", "django", "flask", "fastapi", "pandas", "numpy", "matplotlib"],
+            "javascript": ["js", "es6", "typescript", "ts", "node", "react", "nextjs", "vue", "angular"],
+            "aws": ["amazon web services", "ec2", "s3", "lambda", "cloudfront", "route53"],
+            "ci/cd": ["cicd", "continuous integration", "continuous deployment", "pipelines", "actions", "github actions", "gitlab ci"],
+            "rest api": ["restful", "apis", "endpoint", "openapi", "swagger"],
+            "git": ["github", "gitlab", "bitbucket", "version control", "svn", "mercurial"],
+            "docker": ["containers", "containerization", "dockerfile", "docker-compose"],
+            "kubernetes": ["k8s", "orchestration", "helm", "eks", "aks", "gke"],
+            "java": ["spring", "springboot", "hibernate", "maven", "gradle"]
+        }
+        
+        if skill_lower in synonyms:
+            for syn in synonyms[skill_lower]:
+                if syn in text:
+                    return True
+                    
+        # 3. Permissive substring check for longer technical terms
+        if len(skill_lower) > 3:
+            # Check if skill exists as a substring surrounded by non-word chars or start/end
+            if re.search(r'(?i)[^a-z0-9]?' + re.escape(skill_lower) + r'[^a-z0-9]?', text):
+                return True
+            
+        return False
 
-    # Check for critical skills
+    # Check for skills
     for skill in required_skills:
         if check_skill(skill, resume_text_clean):
             matched_skills.append(skill)
         else:
             missing_skills_list.append({"skill": skill, "severity": "High"})
             
-    # Check for nice-to-have skills
     for skill in nice_to_have_skills:
         if not check_skill(skill, resume_text_clean):
             missing_skills_list.append({"skill": skill, "severity": "Medium"})
@@ -114,55 +148,45 @@ def analyze_profile(job_title, resume_file, country):
     
     if total_critical > 0:
         match_score = int((matched_critical / total_critical) * 100)
-        # Normalize to be encouraging but realistic
-        match_score = min(max(match_score, 10), 98)
+        # Normalize: ensure it's encouraging but distinct
+        match_score = min(max(match_score, 18), 98)
     else:
         match_score = 70
         
-    # Aggregate all relevant skills for the Matrix
     all_required_skills = []
+    # Using specific loops to maintain structure
     for skill in required_skills:
         all_required_skills.append({
-            "Skill": skill,
-            "Category": "Technical",
-            "Priority": "High",
+            "Skill": skill, "Category": "Technical", "Priority": "High",
             "Status": "Completed" if skill in matched_skills else "To Do"
         })
     for skill in nice_to_have_skills:
         all_required_skills.append({
-            "Skill": skill,
-            "Category": "Technical",
-            "Priority": "Medium",
+            "Skill": skill, "Category": "Technical", "Priority": "Medium",
             "Status": "Completed" if skill in matched_skills else "To Do"
         })
 
-    # Salary Ranges (Mock data enhanced with basic logic)
+    # Salary & Companies
     base_salaries = {
         "USA": [90000, 160000], "Canada": [75000, 130000], "Germany": [65000, 110000],
         "UK": [55000, 100000], "Australia": [80000, 140000], "UAE": [100000, 150000],
         "India": [500000, 2500000]
     }
     salary_range = base_salaries.get(country, [50000, 100000])
-    salary_range = [int(s * (0.9 + match_score/250)) for s in salary_range]
-
-    # Get dynamic companies
-    hiring_companies = get_companies_by_region_and_role(country, target_role)
-    
-    # Generate dynamic roadmap
-    roadmap = generate_roadmap(missing_skills_list)
+    salary_range = [int(s * (0.85 + match_score/200)) for s in salary_range]
 
     return {
         "success": True,
         "match_score": match_score,
         "missing_skills": missing_skills_list,
-        "all_required_skills": all_required_skills, # New field for Matrix
+        "all_required_skills": all_required_skills,
         "job_title": job_title,
         "target_role_detected": target_role,
         "target_country": country,
         "salary_range": salary_range,
         "market_demand_score": 85, 
-        "hiring_companies": hiring_companies,
-        "roadmap": roadmap
+        "hiring_companies": get_companies_by_region_and_role(country, target_role),
+        "roadmap": generate_roadmap(missing_skills_list)
     }
 
 def get_companies_by_region_and_role(country, role):

@@ -35,24 +35,10 @@ def render():
                         # pypdf supports file-like objects
                         
                         try:
-                            from services.career_analyzer import analyze_profile, extract_text_from_pdf
-                            
-                            # Debug: View what the system sees
-                            raw_text = extract_text_from_pdf(uploaded_file)
-                            uploaded_file.seek(0) # Reset pointer for the actual analysis
-                            
-                            with st.expander("🔍 Debug: Analysis Details (Recruiter won't see this)"):
-                                st.write("**Extracted Text (first 500 chars):**")
-                                st.code(raw_text[:500] + "...")
-                                if not raw_text.strip():
-                                    st.error("WARNING: No text was extracted from this PDF!")
-                                
+                            from services.career_analyzer import analyze_profile
                             result = analyze_profile(dream_job, uploaded_file, target_country)
                             
                             if result.get("success"):
-                                if "target_role_detected" in result:
-                                    st.info(f"Detected Role: **{result['target_role_detected']}**")
-                                
                                 st.session_state.analysis_complete = True
                                 st.session_state.analysis_result = result
                                 st.session_state.user_job = dream_job
@@ -67,7 +53,6 @@ def render():
                                 # Trigger navigation to Dashboard
                                 st.session_state.manual_selection = "Dashboard"
                                 st.success("Analysis Complete! Redirecting...")
-                                time.sleep(1) # Give user a second to see the debug info if they want
                                 st.rerun()
                             else:
                                 st.error(f"Analysis failed: {result.get('error')}")

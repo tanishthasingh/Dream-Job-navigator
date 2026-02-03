@@ -202,12 +202,7 @@ def analyze_profile(job_title, resume_file, country):
         "salary_range": salary_range,
         "market_demand_score": 85, 
         "hiring_companies": get_companies_by_region_and_role(country, target_role),
-        "roadmap": generate_roadmap(missing_skills_list),
-        "debug_info": {
-            "raw_text_snippet": resume_text_clean[:1000],
-            "role_match_score": best_match_score,
-            "tokens_found": list(job_tokens.intersection(set(re.findall(r'\w+', target_role.lower()))))
-        }
+        "roadmap": generate_roadmap(missing_skills_list)
     }
 
 def get_companies_by_region_and_role(country, role):

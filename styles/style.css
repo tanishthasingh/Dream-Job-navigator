@@ -1,0 +1,103 @@
+/* Main background and fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+
+html,
+body,
+[class*="css"] {
+    font-family: 'Inter', sans-serif;
+}
+
+/* Vibrant Gradient Background */
+.stApp {
+    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+    background-attachment: fixed;
+}
+
+/* Sidebar styling */
+[data-testid="stSidebar"] {
+    background-color: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    border-right: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Dark mode overrides */
+@media (prefers-color-scheme: dark) {
+    .stApp {
+        background: linear-gradient(135deg, #1e1e2f 0%, #2a2a40 100%);
+    }
+
+    [data-testid="stSidebar"] {
+        background-color: rgba(30, 30, 47, 0.95);
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+    }
+}
+
+/* Glassmorphism Card Style */
+.metric-card,
+div[data-testid="stMetric"],
+div.stDataFrame {
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    padding: 20px;
+    border-radius: 16px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    backdrop-filter: blur(5px);
+    margin-bottom: 20px;
+}
+
+/* Dark mode for cars */
+@media (prefers-color-scheme: dark) {
+
+    .metric-card,
+    div[data-testid="stMetric"],
+    div.stDataFrame {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+}
+
+/* Custom buttons with gradient */
+.stButton>button {
+    border-radius: 12px;
+    background: linear-gradient(90deg, #4b6cb7 0%, #182848 100%);
+    color: white;
+    font-weight: 600;
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.stButton>button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    color: white;
+}
+
+/* Titles */
+h1 {
+    background: linear-gradient(120deg, #2980b9, #8e44ad);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 800;
+}
+
+@media (prefers-color-scheme: dark) {
+    h1 {
+        background: linear-gradient(120deg, #89f7fe, #66a6ff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+}
+
+/* Navigation Menu Selected Item */
+.nav-link-selected {
+    background-color: #4b6cb7 !important;
+}
+
+/* Timeline specific */
+.timeline-item {
+    border-left: 2px solid #4b6cb7;
+}
+
+.timeline-item::before {
+    background: #4b6cb7;
+}

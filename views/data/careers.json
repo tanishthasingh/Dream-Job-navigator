@@ -1,0 +1,42 @@
+{
+  "Software Engineer": {
+    "required_skills": [
+      "Data Structures",
+      "Algorithms",
+      "Python",
+      "Java",
+      "Git",
+      "Problem Solving"
+    ],
+    "optional_skills": [
+      "System Design",
+      "Docker",
+      "AWS Basics"
+    ],
+    "recommended_certifications": [
+      "AWS Cloud Practitioner",
+      "Coursera Algorithms"
+    ],
+    "education": "Bachelor's in Computer Science or related field"
+  },
+
+  "Data Scientist": {
+    "required_skills": [
+      "Python",
+      "Statistics",
+      "Machine Learning",
+      "Pandas",
+      "NumPy"
+    ],
+    "optional_skills": [
+      "Deep Learning",
+      "SQL",
+      "Data Visualization"
+    ],
+    "recommended_certifications": [
+      "IBM Data Science",
+      "Google Data Analytics"
+    ],
+    "education": "Bachelor's in CS / Math / Statistics"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "Python": {
+    "keywords": ["python", "python3", "py"],
+    "category": "Programming Language"
+  },
+  "Java": {
+    "keywords": ["java", "jdk", "jre"],
+    "category": "Programming Language"
+  },
+  "Data Structures": {
+    "keywords": ["data structures", "dsa", "arrays", "linked list", "trees", "graphs"],
+    "category": "Computer Science Fundamentals"
+  },
+  "Algorithms": {
+    "keywords": ["algorithms", "sorting", "searching", "dynamic programming"],
+    "category": "Computer Science Fundamentals"
+  },
+  "Machine Learning": {
+    "keywords": ["machine learning", "ml", "supervised learning", "unsupervised learning"],
+    "category": "Artificial Intelligence"
+  },
+  "Statistics": {
+    "keywords": ["statistics", "probability", "mean", "variance"],
+    "category": "Mathematics"
+  },
+  "AWS Basics": {
+    "keywords": ["aws", "ec2", "s3", "iam", "cloud computing"],
+    "category": "Cloud"
+  },
+  "Git": {
+    "keywords": ["git", "github", "version control"],
+    "category": "Tools"
+  },
+  "Docker": {
+    "keywords": ["docker", "containers", "dockerfile"],
+    "category": "DevOps"
+  }
+}

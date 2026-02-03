@@ -1,0 +1,7 @@
+[client]
+toolbarMode = "viewer" # Hides the top right 'Deploy' and options menu
+showErrorDetails = false # Hides technical error traces from users
+
+[theme]
+base = "light"
+primaryColor = "#4b6cb7"

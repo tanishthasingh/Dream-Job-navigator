@@ -3,13 +3,16 @@ import json
 import re
 
 def extract_text_from_pdf(file):
-    """Extracts text from an uploaded PDF file."""
+    """Extracts text from an uploaded PDF file with page separation."""
     try:
         pdf_reader = pypdf.PdfReader(file)
-        text = ""
+        text_parts = []
         for page in pdf_reader.pages:
-            text += page.extract_text()
-        return text
+            page_text = page.extract_text()
+            if page_text:
+                text_parts.append(page_text)
+        # Join with double newline to ensure word boundaries at page breaks
+        return "\n\n".join(text_parts)
     except Exception as e:
         print(f"Error reading PDF: {e}")
         return ""
@@ -48,102 +51,99 @@ def analyze_profile(job_title, resume_file, country):
     if not resume_text:
         return {"error": "Could not extract text from resume. Please ensure it is a valid PDF."}
     
-    # Normalize text
-    resume_text_lower = resume_text.lower()
+    # Normalize text - replace common ligatures or unusual whitespace
+    resume_text_clean = re.sub(r'\s+', ' ', resume_text).lower()
     
     # Determine which skill set to use
     db = get_job_skills_database()
-    # Simple fuzzy match for job title, default to General if no match
     target_role = "General"
-    best_match_len = 0
+    best_match_score = 0
     
+    # Improved role matching using simple token overlap
+    job_tokens = set(re.findall(r'\w+', job_title.lower()))
     for role in db.keys():
-        if role.lower() in job_title.lower():
-            # Basic longest match win (e.g. choose specific over general)
-            if len(role) > best_match_len:
-                target_role = role
-                best_match_len = len(role)
+        if role == "General": continue
+        role_tokens = set(re.findall(r'\w+', role.lower()))
+        overlap = len(job_tokens.intersection(role_tokens))
+        if overlap > best_match_score:
+            target_role = role
+            best_match_score = overlap
             
     required_skills = db[target_role]["critical"]
     nice_to_have_skills = db[target_role]["nice_to_have"]
     
     missing_skills_list = []
-    matched_skills_count = 0
-    total_critical_skills = len(required_skills)
+    matched_skills = []
     
+    def check_skill(skill_name, text):
+        skill_lower = skill_name.lower()
+        # Special handling for skills with symbols like C++ or .NET
+        if not re.search(r'[a-zA-Z0-9]', skill_lower[-1]):
+             # If ends in symbol, don't use \b at the end
+             pattern = r'\b' + re.escape(skill_lower)
+        elif not re.search(r'[a-zA-Z0-9]', skill_lower[0]):
+             # If starts with symbol, don't use \b at start
+             pattern = re.escape(skill_lower) + r'\b'
+        else:
+             # Standard word boundaries but allow versioning like Python3
+             pattern = r'\b' + re.escape(skill_lower) + r'(?:\d+)?\b'
+        
+        # Also check for common compound mentions like PostgreSQL for SQL
+        if skill_lower == "sql" and "postgresql" in text:
+            return True
+            
+        return re.search(pattern, text) is not None
+
     # Check for critical skills
     for skill in required_skills:
-        # Use regex for word boundary matching to avoid partial matches (e.g. "Go" in "Good")
-        # Creating a safe regex pattern
-        pattern = r'\b' + re.escape(skill.lower()) + r'\b'
-        if re.search(pattern, resume_text_lower):
-            matched_skills_count += 1
+        if check_skill(skill, resume_text_clean):
+            matched_skills.append(skill)
         else:
             missing_skills_list.append({"skill": skill, "severity": "High"})
             
     # Check for nice-to-have skills
     for skill in nice_to_have_skills:
-        pattern = r'\b' + re.escape(skill.lower()) + r'\b'
-        if not re.search(pattern, resume_text_lower):
+        if not check_skill(skill, resume_text_clean):
             missing_skills_list.append({"skill": skill, "severity": "Medium"})
+        else:
+            matched_skills.append(skill)
 
     # Calculate Score
-    if total_critical_skills > 0:
-        raw_score = (matched_skills_count / total_critical_skills) * 100
-        # normalize to be a bit more generous
-        match_score = int(min(raw_score + 10, 95)) 
+    total_critical = len(required_skills)
+    matched_critical = len([s for s in matched_skills if s in required_skills])
+    
+    if total_critical > 0:
+        match_score = int((matched_critical / total_critical) * 100)
+        # Normalize to be encouraging but realistic
+        match_score = min(max(match_score, 10), 98)
     else:
         match_score = 70
         
     # Aggregate all relevant skills for the Matrix
-    # Combine (Matched Critical + Missing Critical + Missing Nice-to-have)
-    # Actually simpler: Just take the Target Role's Critical Skills + Nice To Have
     all_required_skills = []
-    
-    # Add Critical Skills
     for skill in required_skills:
-        status = "Completed"
-        # Re-check match logic simply or check if in missing list (inverse)
-        is_missing = any(m['skill'] == skill for m in missing_skills_list)
-        if is_missing:
-            status = "To Do"
-        
         all_required_skills.append({
             "Skill": skill,
             "Category": "Technical",
             "Priority": "High",
-            "Status": status
+            "Status": "Completed" if skill in matched_skills else "To Do"
         })
-        
-    # Add Nice to Have
     for skill in nice_to_have_skills:
-        status = "Completed"
-        is_missing = any(m['skill'] == skill for m in missing_skills_list)
-        if is_missing:
-            status = "To Do"
-            
         all_required_skills.append({
             "Skill": skill,
             "Category": "Technical",
             "Priority": "Medium",
-            "Status": status
+            "Status": "Completed" if skill in matched_skills else "To Do"
         })
 
     # Salary Ranges (Mock data enhanced with basic logic)
     base_salaries = {
-        "USA": [90000, 160000],
-        "Canada": [75000, 130000],
-        "Germany": [65000, 110000],
-        "UK": [55000, 100000],
-        "Australia": [80000, 140000],
-        "UAE": [100000, 150000],
-        "India": [500000, 2500000] # INR
+        "USA": [90000, 160000], "Canada": [75000, 130000], "Germany": [65000, 110000],
+        "UK": [55000, 100000], "Australia": [80000, 140000], "UAE": [100000, 150000],
+        "India": [500000, 2500000]
     }
     salary_range = base_salaries.get(country, [50000, 100000])
-    
-    # Adjust salary slightly based on score
-    salary_multiplier = 0.9 + (match_score / 200) # 0.9 to 1.4
-    adjusted_salary_range = [int(s * salary_multiplier) for s in salary_range]
+    salary_range = [int(s * (0.9 + match_score/250)) for s in salary_range]
 
     # Get dynamic companies
     hiring_companies = get_companies_by_region_and_role(country, target_role)
@@ -157,8 +157,9 @@ def analyze_profile(job_title, resume_file, country):
         "missing_skills": missing_skills_list,
         "all_required_skills": all_required_skills, # New field for Matrix
         "job_title": job_title,
+        "target_role_detected": target_role,
         "target_country": country,
-        "salary_range": adjusted_salary_range,
+        "salary_range": salary_range,
         "market_demand_score": 85, 
         "hiring_companies": hiring_companies,
         "roadmap": roadmap

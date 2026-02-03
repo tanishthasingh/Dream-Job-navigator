@@ -3,15 +3,27 @@ import json
 import re
 
 def extract_text_from_pdf(file):
-    """Extracts text from an uploaded PDF file with page separation."""
+    """Extracts text from an uploaded PDF file with robust reconstruction of spaced-out characters."""
     try:
         pdf_reader = pypdf.PdfReader(file)
         text_parts = []
         for page in pdf_reader.pages:
             page_text = page.extract_text()
             if page_text:
-                text_parts.append(page_text)
-        # Join with double newline to ensure word boundaries at page breaks
+                # Heuristic: if characters are separated by single spaces (e.g., "g a l g o t i a s"), join them.
+                # This pattern looks for a sequence of 3+ single characters separated by spaces.
+                # We include common symbols found in resumes (., /, @, %, &, +, -)
+                spaced_pattern = r'(?:[a-zA-Z0-9\.\/\%\&\@\(\)\+\-]\s){2,}[a-zA-Z0-9\.\/\%\&\@\(\)\+\-]'
+                def join_match(m):
+                    # Replace single spaces but preserve double spaces (potential word boundaries)
+                    return m.group(0).replace(" ", "")
+                
+                fixed_text = re.sub(spaced_pattern, join_match, page_text)
+                
+                # Second pass for common number formats like "7 . 9 8" or "2 0 2 4"
+                fixed_text = re.sub(r'([0-9])\s([\.\/])\s([0-9])', r'\1\2\3', fixed_text)
+                
+                text_parts.append(fixed_text)
         return "\n\n".join(text_parts)
     except Exception as e:
         print(f"Error reading PDF: {e}")
@@ -52,7 +64,6 @@ def analyze_profile(job_title, resume_file, country):
         return {"error": "Could not extract text from resume. Please ensure it is a valid PDF."}
     
     # Normalize text - replace common ligatures or unusual whitespace
-    # Handles cases like "P y t h o n" occurring in certain PDF extractions
     resume_text_clean = re.sub(r'(?<=[a-zA-Z])\s(?=[a-zA-Z]\s)', '', resume_text)
     resume_text_clean = re.sub(r'\s+', ' ', resume_text_clean).lower()
     
@@ -104,13 +115,13 @@ def analyze_profile(job_title, resume_file, country):
             
         # 2. Comprehensive Synonym and common variation check
         synonyms = {
-            "sql": ["postgresql", "mysql", "oracle", "mariadb", "sqlite", "t-sql", "nosql", "dynamodb", "mongodb", "pl/sql"],
-            "python": ["python3", "py3", "django", "flask", "fastapi", "pandas", "numpy", "matplotlib"],
-            "javascript": ["js", "es6", "typescript", "ts", "node", "react", "nextjs", "vue", "angular"],
-            "aws": ["amazon web services", "ec2", "s3", "lambda", "cloudfront", "route53"],
-            "ci/cd": ["cicd", "continuous integration", "continuous deployment", "pipelines", "actions", "github actions", "gitlab ci"],
-            "rest api": ["restful", "apis", "endpoint", "openapi", "swagger"],
-            "git": ["github", "gitlab", "bitbucket", "version control", "svn", "mercurial"],
+            "sql": ["postgresql", "mysql", "oracle", "mariadb", "sqlite", "t-sql", "nosql", "dynamodb", "mongodb", "pl/sql", "databases", "querying"],
+            "python": ["python3", "py3", "django", "flask", "fastapi", "pandas", "numpy", "matplotlib", "scripting"],
+            "javascript": ["js", "es6", "typescript", "ts", "node", "react", "nextjs", "vue", "angular", "front-end"],
+            "aws": ["amazon web services", "ec2", "s3", "lambda", "cloudfront", "route53", "cloud computing"],
+            "ci/cd": ["cicd", "continuous integration", "continuous deployment", "pipelines", "actions", "github actions", "gitlab ci", "automation"],
+            "rest api": ["restful", "apis", "endpoint", "openapi", "swagger", "backend integration", "integrations"],
+            "git": ["github", "gitlab", "bitbucket", "version control", "svn", "mercurial", "branching"],
             "docker": ["containers", "containerization", "dockerfile", "docker-compose"],
             "kubernetes": ["k8s", "orchestration", "helm", "eks", "aks", "gke"],
             "java": ["spring", "springboot", "hibernate", "maven", "gradle"]
@@ -121,8 +132,13 @@ def analyze_profile(job_title, resume_file, country):
                 if syn in text:
                     return True
                     
-        # 3. Permissive substring check for longer technical terms
-        if len(skill_lower) > 3:
+        # 3. Permissive substring check for technical terms
+        # Lower threshold for critical short skills like SQL, AWS, API
+        threshold = 3
+        if skill_lower in ["sql", "aws", "git", "api"]:
+            threshold = 2
+            
+        if len(skill_lower) > threshold:
             # Check if skill exists as a substring surrounded by non-word chars or start/end
             if re.search(r'(?i)[^a-z0-9]?' + re.escape(skill_lower) + r'[^a-z0-9]?', text):
                 return True
